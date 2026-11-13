@@ -18,7 +18,7 @@ Each [release](https://github.com/chessdesk/shadowchess/releases) holds:
 | File | What |
 |------|------|
 | `shadowchess.safetensors` | fp16 weights; the rating is an input. Metadata: `dim`, `depth`, `heads`, and `temperatures` (JSON, by rating) |
-| `shadowchess-{500,1000,1500}.onnx` | One net per level, rating and temperature baked in. Input `planes` `[1, 64, 17]`, output `logits` `[1, 16384]` |
+| `shadowchess-{500,1000,1500}.onnx` | One net for each of these levels, rating and temperature baked in. Input `planes` `[1, 64, 17]`, output `logits` `[1, 16384]` |
 
 Sample a move from `softmax(logits)` over the legal moves. With the safetensors
 weights, divide the logits by the level's temperature first.
@@ -40,13 +40,33 @@ promotions in slot 0 (knight 1, bishop 2, rook 3).
 Trained on 110M positions from September 2025 Lichess rated blitz, rapid and
 classical games between players rated 400–1799.
 
-## Results (v1.0.0)
+## Results (v1.1.0)
 
-| Level | Temperature | Move loss, humans / net | Blunders, humans / net |
-|-------|-------------|-------------------------|------------------------|
-| 500   | 1.051       | 0.067 / 0.067           | 9.7% / 9.8%            |
-| 1000  | 1.003       | 0.050 / 0.050           | 6.8% / 6.4%            |
-| 1500  | 0.838       | 0.041 / 0.041           | 4.3% / 4.4%            |
+Levels from 500 to 1800, every 100. Each level's temperature was fitted on about 2,000
+held-out positions of players within 100 points of it, so that the net's average move loss
+(judged by Stockfish at depth 10) equals theirs. One level's fit alone is noisy (about
+±0.07), so the shipped temperatures are read off a quadratic through all 14 fits.
+
+| Level | Temperature | Human blunder rate | Beats the level below by |
+|-------|-------------|--------------------|--------------------------|
+| 500   | 1.072       | 9.9%               |                          |
+| 600   | 1.051       | 9.9%               | 134 Elo                  |
+| 700   | 1.029       | 8.8%               | 125 Elo                  |
+| 800   | 1.005       | 7.8%               | 118 Elo                  |
+| 900   | 0.981       | 6.4%               | 73 Elo                   |
+| 1000  | 0.956       | 6.9%               | 77 Elo                   |
+| 1100  | 0.930       | 5.4%               | 47 Elo                   |
+| 1200  | 0.903       | 5.4%               | 54 Elo                   |
+| 1300  | 0.875       | 4.8%               | 47 Elo                   |
+| 1400  | 0.845       | 4.1%               | 41 Elo                   |
+| 1500  | 0.815       | 4.8%               | 42 Elo                   |
+| 1600  | 0.784       | 4.2%               | 26 Elo                   |
+| 1700  | 0.752       | 3.0%               | 35 Elo                   |
+| 1800  | 0.719       | 3.4%               | 50 Elo                   |
+
+A blunder loses at least 0.2 of the expected score. The matches are 1,000 net-vs-net games
+each, so the upper levels are likely somewhat weak for their labels. Below 500 players lose
+about as much per move as at 500, so there's no lower level.
 
 On 26k held-out positions from 1100–1799 players it predicts the human move 51–54%
 of the time, 2–5 points more than Maia-2 (23.3M parameters) in every 100-point band.
